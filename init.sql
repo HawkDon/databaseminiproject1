@@ -13,6 +13,7 @@ DROP TRIGGER IF EXISTS delete_booking_order ON book_orders;
 DROP TRIGGER IF EXISTS update_amount_of_copies ON book_instances;
 
 DROP FUNCTION IF EXISTS isBookAvailable(isbnId integer);
+DROP FUNCTION IF EXISTS checkPrivileges(client_id integer);
 DROP FUNCTION IF EXISTS remove_book_from_the_shelf();
 DROP FUNCTION IF EXISTS put_book_on_the_shelf();
 DROP FUNCTION If EXISTS update_amount_of_copies();
@@ -99,13 +100,48 @@ RETURNS boolean as $$
     END;
 $$ LANGUAGE plpgsql;
 
+CREATE OR REPLACE FUNCTION checkPrivileges(client_id integer)
+RETURNS boolean as $$
+    DECLARE
+        roleOfClient roles_t;
+        amountOfOrders integer;
+        hasSpace boolean;
+    BEGIN
+        SELECT role into roleOfClient FROM client WHERE id = client_id;
+        SELECT count(*) into amountOfOrders FROM book_orders WHERE clientId = client_id AND current_date < toDate;
+        IF roleOfClient = 'NORMAL' THEN
+            IF amountOfOrders < 1 THEN
+                hasSpace = true;
+            ELSE
+                hasSpace = false;
+            END IF;
+        END IF;
+        IF roleOfClient = 'TEACHER' THEN
+            IF amountOfOrders < 2 THEN
+                hasSpace = true;
+            ELSE
+                hasSpace = false;
+            END IF;
+        END IF;
+        IF roleOfClient = 'STUDENT' THEN
+            IF amountOfOrders < 3 THEN
+                hasSpace = true;
+            ELSE
+                hasSpace = false;
+            END IF;
+        END IF;
+        RETURN hasSpace;
+    END;
+$$ LANGUAGE plpgsql;
+
 CREATE TABLE book_orders(
-    id SERIAL PRIMARY KEY,
-    clientId integer REFERENCES client(id),
-    isbn integer REFERENCES book_instances(isbn),
+    id SERIAL PRIMARY KEY NOT NULL,
+    clientId integer REFERENCES client(id) NOT NULL,
+    isbn integer REFERENCES book_instances(isbn) NOT NULL,
     fromDate date NOT NULL,
     toDate date NOT NULL,
-    CHECK ( isBookAvailable(isbn) )
+    CHECK ( isBookAvailable(isbn) ),
+    CHECK ( checkPrivileges( clientId ) )
 );
 
 /* Procedures */
