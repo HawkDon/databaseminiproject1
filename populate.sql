@@ -30,26 +30,40 @@ INSERT INTO author(name) values ('Dmitry Jemerov');
 INSERT INTO author(name) values ('John Lakos');
 
 /* Books */
-INSERT INTO book(title, author, publisher, year, availability, type) VALUES ('Harry Potter and the philosophers stone', 1, 1, '1997-06-26', true, 'PHYSICAL_BOOK');
-INSERT INTO book(title, author, publisher, year, availability, type) VALUES ('Harry Potter and the chamber of secrets', 1, 1, '1998-07-02', true, 'PHYSICAL_BOOK');
-INSERT INTO book(title, author, publisher, year, availability, type) VALUES ('Harry Potter and the prisoner of azkaban', 1, 1, '1999-07-08', true, 'PHYSICAL_BOOK');
-INSERT INTO book(title, author, publisher, year, availability, type) VALUES ('Harry Potter and the goblet of fire', 1, 1, '2000-07-08', true, 'PHYSICAL_BOOK');
-INSERT INTO book(title, author, publisher, year, availability, type) VALUES ('Harry Potter and the order of the phoenix', 1, 1, '2003-06-21', true, 'PHYSICAL_BOOK');
-INSERT INTO book(title, author, publisher, year, availability, type) VALUES ('Harry Potter and the half blood prince', 1, 1, '2005-07-16', true, 'PHYSICAL_BOOK');
-INSERT INTO book(title, author, publisher, year, availability, type) VALUES ('Harry Potter and the deathly hallows', 1, 1, '2007-07-21', true, 'PHYSICAL_BOOK');
-INSERT INTO book(title, author, publisher, year, availability, type) VALUES ('The Ugly Duckling', 5, 5, '1843-11-11', true, 'PHYSICAL_BOOK');
-INSERT INTO book(title, author, publisher, year, availability, type) VALUES ('The Little Mermaid', 5, 5, '1837-04-07', true, 'PHYSICAL_BOOK');
-INSERT INTO book(title, author, publisher, year, availability, type) VALUES ('The Snow Queen', 5, 5, '1844-12-21', true, 'PHYSICAL_BOOK');
-INSERT INTO book(title, author, publisher, year, availability, type) VALUES ('The Tinderbox', 5, 5, '1835-05-08', true, 'PHYSICAL_BOOK');
-INSERT INTO book(title, author, publisher, year, availability, type) VALUES ('Hands-On Data structures and Algorithms with Kotlin', 6, 6, '2019-02-28', true, 'E_BOOK');
-INSERT INTO book(title, author, publisher, year, availability, type) VALUES ('The Business of Systems Integration', 7, 7, '2019-02-28', true, 'E_BOOK');
-INSERT INTO book(title, author, publisher, year, availability, type) VALUES ('The Rust Programming language', 8, 8, '2018-01-02', true, 'E_BOOK');
-INSERT INTO book(title, author, publisher, year, availability, type) VALUES ('Discreet Mathematics', 8, 8, '2015-08-15', true, 'E_BOOK');
-INSERT INTO book(title, author, publisher, year, availability, type, rarity) VALUES ('Kotlin in action', 9, 9, '2015-08-15', true, 'E_BOOK', 'RARE');
-INSERT INTO book(title, author, publisher, year, availability, type, rarity) VALUES ('Seven databases in seven weeks', 2, 2, '2012-05-11', true, 'E_BOOK', 'RARE');
-INSERT INTO book(title, author, publisher, year, availability, type, rarity) VALUES ('Clean Code', 3, 3, '2008-08-01', true, 'E_BOOK', 'RARE');
-INSERT INTO book(title, author, publisher, year, availability, type, rarity) VALUES ('The Art of Software Testing', 4, 4, '1979-05-14', true, 'E_BOOK', 'RARE');
-INSERT INTO book(title, author, publisher, year, availability, type, rarity) VALUES ('Large-Scale C++ Software Design', 10, 10, '1979-05-14', true, 'E_BOOK', 'RARE');
+INSERT INTO book(title, author, publisher, year) VALUES ('Harry Potter and the philosophers stone', 1, 1, '1997-06-26');
+INSERT INTO book(title, author, publisher, year) VALUES ('Harry Potter and the chamber of secrets', 1, 1, '1998-07-02');
+INSERT INTO book(title, author, publisher, year) VALUES ('Harry Potter and the prisoner of azkaban', 1, 1, '1999-07-08');
+INSERT INTO book(title, author, publisher, year) VALUES ('Harry Potter and the goblet of fire', 1, 1, '2000-07-08');
+INSERT INTO book(title, author, publisher, year) VALUES ('Harry Potter and the order of the phoenix', 1, 1, '2003-06-21');
+INSERT INTO book(title, author, publisher, year) VALUES ('Harry Potter and the half blood prince', 1, 1, '2005-07-16');
+INSERT INTO book(title, author, publisher, year) VALUES ('Harry Potter and the deathly hallows', 1, 1, '2007-07-21');
+INSERT INTO book(title, author, publisher, year) VALUES ('The Ugly Duckling', 5, 5, '1843-11-11');
+INSERT INTO book(title, author, publisher, year) VALUES ('The Little Mermaid', 5, 5, '1837-04-07');
+INSERT INTO book(title, author, publisher, year) VALUES ('The Snow Queen', 5, 5, '1844-12-21');
+INSERT INTO book(title, author, publisher, year) VALUES ('The Tinderbox', 5, 5, '1835-05-08');
+INSERT INTO book(title, author, publisher, year) VALUES ('Hands-On Data structures and Algorithms with Kotlin', 6, 6, '2019-02-28');
+INSERT INTO book(title, author, publisher, year) VALUES ('The Business of Systems Integration', 7, 7, '2019-02-28');
+INSERT INTO book(title, author, publisher, year) VALUES ('The Rust Programming language', 8, 8, '2018-01-02');
+INSERT INTO book(title, author, publisher, year) VALUES ('Discreet Mathematics', 8, 8, '2015-08-15');
+INSERT INTO book(title, author, publisher, year) VALUES ('Kotlin in action', 9, 9, '2015-08-15');
+INSERT INTO book(title, author, publisher, year) VALUES ('Seven databases in seven weeks', 2, 2, '2012-05-11');
+INSERT INTO book(title, author, publisher, year) VALUES ('Clean Code', 3, 3, '2008-08-01');
+INSERT INTO book(title, author, publisher, year) VALUES ('The Art of Software Testing', 4, 4, '1979-05-14');
+INSERT INTO book(title, author, publisher, year) VALUES ('Large-Scale C++ Software Design', 10, 10, '1979-05-14');
+
+/* Book Instances */
+INSERT INTO book_instances(book, type) VALUES (1, 'ELECTRONIC_BOOK');
+INSERT INTO book_instances(book, type, rarity) VALUES (1, 'PRINTED_BOOK', 'RARE');
+INSERT INTO book_instances(book, type) VALUES (2, 'ELECTRONIC_BOOK');
+INSERT INTO book_instances(book, type) VALUES (2, 'PRINTED_BOOK');
+INSERT INTO book_instances(book, type) VALUES (3, 'ELECTRONIC_BOOK');
+INSERT INTO book_instances(book, type, rarity) VALUES (3, 'PRINTED_BOOK', 'RARE');
+INSERT INTO book_instances(book, type) VALUES (4, 'ELECTRONIC_BOOK');
+INSERT INTO book_instances(book, type) VALUES (4, 'PRINTED_BOOK');
+INSERT INTO book_instances(book, type) VALUES (5, 'ELECTRONIC_BOOK');
+INSERT INTO book_instances(book, type, rarity) VALUES (5, 'PRINTED_BOOK', 'RARE');
+INSERT INTO book_instances(book, type) VALUES (6, 'ELECTRONIC_BOOK');
+INSERT INTO book_instances(book, type) VALUES (6, 'PRINTED_BOOK');
 
 /* Orders */
 INSERT into book_orders(clientId, bookId, fromDate, toDate) VALUES (1, 3, '2020-01-01', '2021-01-01');
