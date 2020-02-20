@@ -52,20 +52,20 @@ INSERT INTO book(title, author, publisher, year) VALUES ('The Art of Software Te
 INSERT INTO book(title, author, publisher, year) VALUES ('Large-Scale C++ Software Design', 10, 10, '1979-05-14');
 
 /* Book Instances */
-INSERT INTO book_instances(book, type) VALUES (1, 'ELECTRONIC_BOOK');
-INSERT INTO book_instances(book, type, rarity) VALUES (1, 'PRINTED_BOOK', 'RARE');
-INSERT INTO book_instances(book, type) VALUES (2, 'ELECTRONIC_BOOK');
-INSERT INTO book_instances(book, type) VALUES (2, 'PRINTED_BOOK');
-INSERT INTO book_instances(book, type) VALUES (3, 'ELECTRONIC_BOOK');
-INSERT INTO book_instances(book, type, rarity) VALUES (3, 'PRINTED_BOOK', 'RARE');
-INSERT INTO book_instances(book, type) VALUES (4, 'ELECTRONIC_BOOK');
-INSERT INTO book_instances(book, type) VALUES (4, 'PRINTED_BOOK');
-INSERT INTO book_instances(book, type) VALUES (5, 'ELECTRONIC_BOOK');
-INSERT INTO book_instances(book, type, rarity) VALUES (5, 'PRINTED_BOOK', 'RARE');
-INSERT INTO book_instances(book, type) VALUES (6, 'ELECTRONIC_BOOK');
-INSERT INTO book_instances(book, type) VALUES (6, 'PRINTED_BOOK');
+INSERT INTO book_instances(booktypeid, type) VALUES (1, 'ELECTRONIC_BOOK');
+INSERT INTO book_instances(booktypeid, type, rarity) VALUES (1, 'PRINTED_BOOK', 'RARE');
+INSERT INTO book_instances(booktypeid, type) VALUES (2, 'ELECTRONIC_BOOK');
+INSERT INTO book_instances(booktypeid, type) VALUES (2, 'PRINTED_BOOK');
+INSERT INTO book_instances(booktypeid, type) VALUES (3, 'ELECTRONIC_BOOK');
+INSERT INTO book_instances(booktypeid, type, rarity) VALUES (3, 'PRINTED_BOOK', 'RARE');
+INSERT INTO book_instances(booktypeid, type) VALUES (4, 'ELECTRONIC_BOOK');
+INSERT INTO book_instances(booktypeid, type) VALUES (4, 'PRINTED_BOOK');
+INSERT INTO book_instances(booktypeid, type) VALUES (5, 'ELECTRONIC_BOOK');
+INSERT INTO book_instances(booktypeid, type, rarity) VALUES (5, 'PRINTED_BOOK', 'RARE');
+INSERT INTO book_instances(booktypeid, type) VALUES (6, 'ELECTRONIC_BOOK');
+INSERT INTO book_instances(booktypeid, type) VALUES (6, 'PRINTED_BOOK');
 
 /* Orders */
-INSERT into book_orders(clientId, bookId, fromDate, toDate) VALUES (1, 3, '2020-01-01', '2021-01-01');
-INSERT into book_orders(clientId, bookId, fromDate, toDate) VALUES (2, 4, '2020-01-01', '2021-01-01');
-INSERT into book_orders(clientId, bookId, fromDate, toDate) VALUES (3, 5, '2020-01-01', '2021-01-01');
+INSERT into book_orders(clientId, isbn, fromDate, toDate) VALUES (1, 3, '2020-01-01', '2021-01-01');
+INSERT into book_orders(clientId, isbn, fromDate, toDate) VALUES (2, 4, '2020-01-01', '2021-01-01');
+INSERT into book_orders(clientId, isbn, fromDate, toDate) VALUES (3, 5, '2020-01-01', '2021-01-01');

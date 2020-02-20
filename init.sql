@@ -1,13 +1,21 @@
 /* Cleanup */
+
 DROP TABLE IF EXISTS book_orders;
 DROP TABLE IF EXISTS client;
+DROP TABLE IF EXISTS stockings;
+DROP TABLE IF EXISTS book_instances;
 DROP TABLE IF EXISTS book;
 DROP TABLE IF EXISTS author;
 DROP TABLE IF EXISTS publisher;
 
-DROP FUNCTION IF EXISTS isBookAvailable(a integer);
+DROP TRIGGER IF EXISTS add_booking_order ON book_orders;
+DROP TRIGGER IF EXISTS delete_booking_order ON book_orders;
+DROP TRIGGER IF EXISTS update_amount_of_copies ON book_instances;
+
+DROP FUNCTION IF EXISTS isBookAvailable(isbnId integer);
 DROP FUNCTION IF EXISTS remove_book_from_the_shelf();
-DROP FUNCTION IF EXISTS put_book_back_on_the_shelf();
+DROP FUNCTION IF EXISTS put_book_on_the_shelf();
+DROP FUNCTION If EXISTS update_amount_of_copies();
 
 DROP TYPE IF EXISTS rarity_t;
 DROP TYPE IF EXISTS roles_t;
@@ -39,7 +47,7 @@ CREATE TABLE book (
 
 CREATE TABLE book_instances(
     isbn SERIAL PRIMARY KEY NOT NULL,
-    book integer REFERENCES book(id),
+    bookTypeId integer REFERENCES book(id),
     type type_t NOT NULL,
     rarity rarity_t DEFAULT 'NORMAL' NOT NULL
 );
@@ -62,30 +70,28 @@ RETURNS boolean as $$
         isAvailable boolean;
         e_copies integer;
         p_copies integer;
-        getType type_t;
-        getBookId integer;
+        bookType type_t;
+        bookId integer;
     BEGIN
-        SELECT type into getType FROM book_instances WHERE isbn = isbnId;
-        SELECT book into getBookId FROM book_instances WHERE isbn = isbnId;
-        IF getType = 'PRINTED_BOOK' THEN
-            SELECT printed_copies into p_copies from stockings where id = getBookId;
+        SELECT type into bookType FROM book_instances WHERE isbn = isbnId;
+        SELECT bookTypeId into bookId FROM book_instances WHERE isbn = isbnId;
+        IF bookType = 'PRINTED_BOOK' THEN
+            SELECT printed_copies into p_copies from stockings where id = bookId;
             IF p_copies = 0 THEN
-                RAISE NOTICE 'The book with type printed is not available';
+                RAISE NOTICE 'The book with type "PRINTED" is not available';
                 isAvailable = false;
             END IF;
             IF p_copies > 0 THEN
-                RAISE NOTICE 'The book with type printed is available';
                 isAvailable = true;
             END IF;
         END IF;
-        IF getType = 'ELECTRONIC_BOOK' THEN
-            SELECT electronic_copies into e_copies from stockings where id = getBookId;
+        IF bookType = 'ELECTRONIC_BOOK' THEN
+            SELECT electronic_copies into e_copies from stockings where id = bookId;
             IF e_copies = 0 THEN
-                RAISE NOTICE 'The book with type electronic is not available';
+                RAISE NOTICE 'The book with type "ELECTRONIC" is not available';
                 isAvailable = false;
             END IF;
             IF e_copies > 0 THEN
-                RAISE NOTICE 'The book with type electronic is available';
                 isAvailable = true;
             END IF;
         END IF;
@@ -96,46 +102,49 @@ $$ LANGUAGE plpgsql;
 CREATE TABLE book_orders(
     id SERIAL PRIMARY KEY,
     clientId integer REFERENCES client(id),
-    bookId integer REFERENCES book_instances(isbn),
+    isbn integer REFERENCES book_instances(isbn),
     fromDate date NOT NULL,
     toDate date NOT NULL,
-    CHECK ( isBookAvailable(bookId) )
+    CHECK ( isBookAvailable(isbn) )
 );
 
 /* Procedures */
 CREATE OR REPLACE FUNCTION remove_book_from_the_shelf()
 RETURNS TRIGGER as $$
     DECLARE
-        getType type_t;
-        getBookId integer;
+        bookType type_t;
+        bookId integer;
     BEGIN
-        RAISE NOTICE 'Book rented with booking id: %', new.bookId;
-        SELECT type into getType FROM book_instances where isbn = new.bookId;
-        SELECT book into getBookId FROM book_instances where isbn = new.bookId;
-        IF getType = 'PRINTED_BOOK' THEN
-            UPDATE stockings SET printed_copies = printed_copies - 1 WHERE id = getBookId;
+        RAISE NOTICE 'Book instance with id: %', new.isbn;
+        RAISE NOTICE 'has been rented.';
+        SELECT type into bookType FROM book_instances where isbn = new.isbn;
+        SELECT bookTypeId into bookId FROM book_instances where isbn = new.isbn;
+        IF bookType = 'PRINTED_BOOK' THEN
+            UPDATE stockings SET printed_copies = printed_copies - 1 WHERE id = bookId;
         END IF;
-        IF getType = 'ELECTRONIC_BOOK' THEN
-            UPDATE stockings SET electronic_copies = electronic_copies - 1 WHERE id = getBookId;
+        IF bookType = 'ELECTRONIC_BOOK' THEN
+            UPDATE stockings SET electronic_copies = electronic_copies - 1 WHERE id = bookId;
         END IF;
         RETURN NEW;
     END;
     $$ language plpgsql;
 
-CREATE OR REPLACE FUNCTION put_book_back_on_the_shelf()
+CREATE OR REPLACE FUNCTION put_book_on_the_shelf()
 RETURNS TRIGGER as $$
     DECLARE
-        getType type_t;
-        getBookId integer;
+        bookType type_t;
+        bookId integer;
     BEGIN
-        RAISE NOTICE 'Order deleted with booking id: %', old.bookId;
-        SELECT type into getType FROM book_instances where isbn = old.bookId;
-        SELECT book into getBookId FROM book_instances where isbn = old.bookId;
-        IF getType = 'PRINTED_BOOK' THEN
-            UPDATE stockings SET printed_copies = printed_copies + 1 WHERE id = getBookId;
+        RAISE NOTICE 'Order is being deleted...';
+        RAISE NOTICE 'Storing book instance with id: %', old.isbn;
+        RAISE NOTICE 'back into the database.';
+        SELECT type into bookType FROM book_instances where isbn = old.isbn;
+        SELECT bookTypeId into bookId FROM book_instances where isbn = old.isbn;
+        IF bookType = 'PRINTED_BOOK' THEN
+            UPDATE stockings SET printed_copies = printed_copies + 1 WHERE id = bookId;
         END IF;
-        IF getType = 'ELECTRONIC_BOOK' THEN
-            UPDATE stockings SET electronic_copies = electronic_copies + 1 WHERE id = getBookId;
+        IF bookType = 'ELECTRONIC_BOOK' THEN
+            UPDATE stockings SET electronic_copies = electronic_copies + 1 WHERE id = bookId;
         END IF;
         RETURN NEW;
     END;
@@ -146,22 +155,23 @@ RETURNS TRIGGER as $$
     DECLARE
         isCreated boolean;
     BEGIN
-        RAISE NOTICE 'Book Instance available of book: %', new.book;
-        SELECT EXISTS(SELECT * from stockings WHERE id = new.book) into isCreated;
+        RAISE NOTICE 'Book type available for book: %', new.bookTypeId;
+        RAISE NOTICE 'Updating stockings...';
+        SELECT EXISTS(SELECT * from stockings WHERE id = new.bookTypeId) into isCreated;
         IF new.type = 'PRINTED_BOOK' THEN
             IF isCreated = true THEN
-                UPDATE stockings SET printed_copies = printed_copies + 1 WHERE id = new.book;
+                UPDATE stockings SET printed_copies = printed_copies + 1 WHERE id = new.bookTypeId;
             END IF;
             IF isCreated = false THEN
-                INSERT INTO stockings(id, electronic_copies, printed_copies) VALUES (new.book, 0, 1);
+                INSERT INTO stockings(id, electronic_copies, printed_copies) VALUES (new.bookTypeId, 0, 1);
             END IF;
         END IF;
         IF new.type = 'ELECTRONIC_BOOK' THEN
             IF isCreated = true THEN
-                UPDATE stockings SET electronic_copies = electronic_copies + 1 WHERE id = new.book;
+                UPDATE stockings SET electronic_copies = electronic_copies + 1 WHERE id = new.bookTypeId;
             END IF;
             IF isCreated = false THEN
-                INSERT INTO stockings(id, electronic_copies, printed_copies) VALUES (new.book, 1, 0);
+                INSERT INTO stockings(id, electronic_copies, printed_copies) VALUES (new.bookTypeId, 1, 0);
             END IF;
         END IF;
         RETURN NEW;
@@ -176,7 +186,7 @@ CREATE TRIGGER add_booking_order
 CREATE TRIGGER delete_booking_order
     AFTER DELETE ON book_orders
     FOR EACH ROW
-    EXECUTE PROCEDURE put_book_back_on_the_shelf();
+    EXECUTE PROCEDURE put_book_on_the_shelf();
 
 CREATE TRIGGER update_amount_of_copies
     AFTER INSERT ON book_instances
