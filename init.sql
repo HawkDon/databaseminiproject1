@@ -1,5 +1,4 @@
 /* Cleanup */
-
 DROP TABLE IF EXISTS book_orders;
 DROP TABLE IF EXISTS client;
 DROP TABLE IF EXISTS stockings;
