@@ -13,7 +13,8 @@ DROP TRIGGER IF EXISTS delete_booking_order ON book_orders;
 DROP TRIGGER IF EXISTS update_amount_of_copies ON book_instances;
 
 DROP FUNCTION IF EXISTS isBookAvailable(isbnId integer);
-DROP FUNCTION IF EXISTS checkPrivileges(client_id integer);
+DROP FUNCTION IF EXISTS checkBookCapacityPrivileges(client_id integer);
+DROP FUNCTION IF EXISTS checkDatePrivileges(client_id integer, from_date date, to_date date);
 DROP FUNCTION IF EXISTS remove_book_from_the_shelf();
 DROP FUNCTION IF EXISTS put_book_on_the_shelf();
 DROP FUNCTION If EXISTS update_amount_of_copies();
@@ -21,11 +22,13 @@ DROP FUNCTION If EXISTS update_amount_of_copies();
 DROP TYPE IF EXISTS rarity_t;
 DROP TYPE IF EXISTS roles_t;
 DROP TYPE IF EXISTS type_t;
+DROP TYPE IF EXISTS location_t;
 
 /* Enums */
 create type rarity_t as enum ('RARE', 'NORMAL');
 create type roles_t as enum ('STUDENT', 'NORMAL', 'TEACHER');
 create type type_t as enum('PRINTED_BOOK', 'ELECTRONIC_BOOK');
+create type location_t as enum('AT_LIBRARY', 'AT_CLIENT');
 
 /* Tables */
 CREATE TABLE author (
@@ -50,7 +53,9 @@ CREATE TABLE book_instances(
     isbn SERIAL PRIMARY KEY NOT NULL,
     bookTypeId integer REFERENCES book(id),
     type type_t NOT NULL,
-    rarity rarity_t DEFAULT 'NORMAL' NOT NULL
+    rarity rarity_t DEFAULT 'NORMAL' NOT NULL,
+    availability boolean DEFAULT true NOT NULL,
+    location location_t DEFAULT 'AT_LIBRARY' NOT NULL
 );
 
 CREATE TABLE stockings (
@@ -100,7 +105,7 @@ RETURNS boolean as $$
     END;
 $$ LANGUAGE plpgsql;
 
-CREATE OR REPLACE FUNCTION checkPrivileges(client_id integer)
+CREATE OR REPLACE FUNCTION checkBookCapacityPrivileges(client_id integer)
 RETURNS boolean as $$
     DECLARE
         roleOfClient roles_t;
@@ -134,6 +139,44 @@ RETURNS boolean as $$
     END;
 $$ LANGUAGE plpgsql;
 
+
+CREATE OR REPLACE FUNCTION checkDatePrivileges(client_id integer, from_date date, to_date date)
+RETURNS boolean as $$
+    DECLARE
+        clientRole roles_t;
+        days integer;
+        dateIsValid boolean;
+    BEGIN
+        SELECT role into clientRole from client WHERE id = client_id;
+        SELECT DATE_PART('day', to_date::timestamp - from_date::timestamp) into days;
+        IF clientRole = 'NORMAL' THEN
+            IF days < 8 AND days > 0 THEN
+                dateIsValid = true;
+            ELSE
+                RAISE NOTICE 'Date range is invalid for role type of: %', clientRole;
+                dateIsValid = false;
+            END IF;
+        END IF;
+        IF clientRole = 'TEACHER' THEN
+            IF days < 15 AND days > 0 THEN
+                dateIsValid = true;
+            ELSE
+                RAISE NOTICE 'Date range is invalid for role type of: %', clientRole;
+                dateIsValid = false;
+            END IF;
+        END IF;
+        IF clientRole = 'STUDENT' THEN
+            IF days < 22 AND days > 0 THEN
+                dateIsValid = true;
+            ELSE
+                RAISE NOTICE 'Date range is invalid for role type of: %', clientRole;
+                dateIsValid = false;
+            END IF;
+        END IF;
+        RETURN dateIsValid;
+    END;
+$$ language plpgsql;
+
 CREATE TABLE book_orders(
     id SERIAL PRIMARY KEY NOT NULL,
     clientId integer REFERENCES client(id) NOT NULL,
@@ -141,7 +184,8 @@ CREATE TABLE book_orders(
     fromDate date NOT NULL,
     toDate date NOT NULL,
     CHECK ( isBookAvailable(isbn) ),
-    CHECK ( checkPrivileges( clientId ) )
+    CHECK ( checkBookCapacityPrivileges( clientId ) ),
+    CHECK ( checkDatePrivileges(clientId, fromDate, toDate) )
 );
 
 /* Procedures */
@@ -157,9 +201,11 @@ RETURNS TRIGGER as $$
         SELECT bookTypeId into bookId FROM book_instances where isbn = new.isbn;
         IF bookType = 'PRINTED_BOOK' THEN
             UPDATE stockings SET printed_copies = printed_copies - 1 WHERE id = bookId;
+            UPDATE book_instances SET availability = false, location = 'AT_CLIENT' WHERE isbn = new.isbn;
         END IF;
         IF bookType = 'ELECTRONIC_BOOK' THEN
             UPDATE stockings SET electronic_copies = electronic_copies - 1 WHERE id = bookId;
+            UPDATE book_instances SET availability = false, location = 'AT_CLIENT' WHERE isbn = new.isbn;
         END IF;
         RETURN NEW;
     END;

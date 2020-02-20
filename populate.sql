@@ -66,6 +66,6 @@ INSERT INTO book_instances(booktypeid, type) VALUES (6, 'ELECTRONIC_BOOK');
 INSERT INTO book_instances(booktypeid, type) VALUES (6, 'PRINTED_BOOK');
 
 /* Orders */
-INSERT into book_orders(clientId, isbn, fromDate, toDate) VALUES (1, 3, '2020-01-01', '2021-01-01');
-INSERT into book_orders(clientId, isbn, fromDate, toDate) VALUES (2, 4, '2020-01-01', '2021-01-01');
-INSERT into book_orders(clientId, isbn, fromDate, toDate) VALUES (3, 5, '2020-01-01', '2021-01-01');
+INSERT into book_orders(clientId, isbn, fromDate, toDate) VALUES (1, 3, '2021-02-01', '2021-02-06');
+INSERT into book_orders(clientId, isbn, fromDate, toDate) VALUES (2, 4, '2021-02-01', '2021-02-06');
+INSERT into book_orders(clientId, isbn, fromDate, toDate) VALUES (3, 5, '2021-02-01', '2021-02-06');
