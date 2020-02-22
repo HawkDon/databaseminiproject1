@@ -1,4 +1,7 @@
 /* Cleanup */
+DROP VIEW IF EXISTS get_most_popular_titles;
+DROP VIEW IF EXISTS get_current_availability;
+
 DROP TABLE IF EXISTS book_orders;
 DROP TABLE IF EXISTS client;
 DROP TABLE IF EXISTS stockings;
@@ -8,26 +11,28 @@ DROP TABLE IF EXISTS author;
 DROP TABLE IF EXISTS publisher;
 
 DROP TRIGGER IF EXISTS add_booking_order ON book_orders;
-DROP TRIGGER IF EXISTS delete_booking_order ON book_orders;
-DROP TRIGGER IF EXISTS update_amount_of_copies ON book_instances;
+DROP TRIGGER IF EXISTS insert_book_stock_rent ON book_instances;
+DROP TRIGGER IF EXISTS update_book_stock_rent ON book_orders;
 
-DROP FUNCTION IF EXISTS isBookAvailable(isbnId integer);
-DROP FUNCTION IF EXISTS checkBookCapacityPrivileges(client_id integer);
 DROP FUNCTION IF EXISTS checkDatePrivileges(client_id integer, from_date date, to_date date);
 DROP FUNCTION IF EXISTS remove_book_from_the_shelf();
-DROP FUNCTION IF EXISTS put_book_on_the_shelf();
-DROP FUNCTION If EXISTS update_amount_of_copies();
+DROP FUNCTION If EXISTS insert_book_stock_rent();
+DROP FUNCTION If EXISTS update_book_stock_rent();
 
 DROP TYPE IF EXISTS rarity_t;
 DROP TYPE IF EXISTS roles_t;
 DROP TYPE IF EXISTS type_t;
 DROP TYPE IF EXISTS location_t;
+DROP TYPE IF EXISTS status_t;
+DROP TYPE IF EXISTS orderStatus_t;
 
 /* Enums */
 create type rarity_t as enum ('RARE', 'NORMAL');
 create type roles_t as enum ('STUDENT', 'NORMAL', 'TEACHER');
 create type type_t as enum('PRINTED_BOOK', 'ELECTRONIC_BOOK');
 create type location_t as enum('AT_LIBRARY', 'AT_CLIENT');
+create type status_t as enum('AVAILABLE', 'NOT_AVAILABLE');
+create type orderStatus_t as enum('ONGOING', 'FINISHED', 'DELAYED');
 
 /* Tables */
 CREATE TABLE author (
@@ -53,7 +58,7 @@ CREATE TABLE book_instances(
     bookTypeId integer REFERENCES book(id),
     type type_t NOT NULL,
     rarity rarity_t DEFAULT 'NORMAL' NOT NULL,
-    availability boolean DEFAULT true NOT NULL,
+    status status_t DEFAULT 'AVAILABLE' NOT NULL,
     location location_t DEFAULT 'AT_LIBRARY' NOT NULL
 );
 
@@ -69,76 +74,6 @@ CREATE TABLE client(
 );
 
 /* Checks */
-CREATE OR REPLACE FUNCTION isBookAvailable(isbnId integer)
-RETURNS boolean as $$
-    DECLARE
-        isAvailable boolean;
-        e_copies integer;
-        p_copies integer;
-        bookType type_t;
-        bookId integer;
-    BEGIN
-        SELECT type into bookType FROM book_instances WHERE isbn = isbnId;
-        SELECT bookTypeId into bookId FROM book_instances WHERE isbn = isbnId;
-        IF bookType = 'PRINTED_BOOK' THEN
-            SELECT printed_copies into p_copies from stockings where id = bookId;
-            IF p_copies = 0 THEN
-                RAISE NOTICE 'The book with type "PRINTED" is not available';
-                isAvailable = false;
-            END IF;
-            IF p_copies > 0 THEN
-                isAvailable = true;
-            END IF;
-        END IF;
-        IF bookType = 'ELECTRONIC_BOOK' THEN
-            SELECT electronic_copies into e_copies from stockings where id = bookId;
-            IF e_copies = 0 THEN
-                RAISE NOTICE 'The book with type "ELECTRONIC" is not available';
-                isAvailable = false;
-            END IF;
-            IF e_copies > 0 THEN
-                isAvailable = true;
-            END IF;
-        END IF;
-        RETURN isAvailable;
-    END;
-$$ LANGUAGE plpgsql;
-
-CREATE OR REPLACE FUNCTION checkBookCapacityPrivileges(client_id integer)
-RETURNS boolean as $$
-    DECLARE
-        roleOfClient roles_t;
-        amountOfOrders integer;
-        hasSpace boolean;
-    BEGIN
-        SELECT role into roleOfClient FROM client WHERE id = client_id;
-        SELECT count(*) into amountOfOrders FROM book_orders WHERE clientId = client_id AND current_date < toDate;
-        IF roleOfClient = 'NORMAL' THEN
-            IF amountOfOrders < 1 THEN
-                hasSpace = true;
-            ELSE
-                hasSpace = false;
-            END IF;
-        END IF;
-        IF roleOfClient = 'TEACHER' THEN
-            IF amountOfOrders < 2 THEN
-                hasSpace = true;
-            ELSE
-                hasSpace = false;
-            END IF;
-        END IF;
-        IF roleOfClient = 'STUDENT' THEN
-            IF amountOfOrders < 3 THEN
-                hasSpace = true;
-            ELSE
-                hasSpace = false;
-            END IF;
-        END IF;
-        RETURN hasSpace;
-    END;
-$$ LANGUAGE plpgsql;
-
-
 CREATE OR REPLACE FUNCTION checkDatePrivileges(client_id integer, from_date date, to_date date)
 RETURNS boolean as $$
     DECLARE
@@ -182,8 +117,7 @@ CREATE TABLE book_orders(
     isbn integer REFERENCES book_instances(isbn) NOT NULL,
     fromDate date NOT NULL,
     toDate date NOT NULL,
-    CHECK ( isBookAvailable(isbn) ),
-    CHECK ( checkBookCapacityPrivileges( clientId ) ),
+    status orderStatus_t NOT NULL,
     CHECK ( checkDatePrivileges(clientId, fromDate, toDate) )
 );
 
@@ -191,47 +125,61 @@ CREATE TABLE book_orders(
 CREATE OR REPLACE FUNCTION remove_book_from_the_shelf()
 RETURNS TRIGGER as $$
     DECLARE
+        e_copies integer;
+        p_copies integer;
         bookType type_t;
         bookId integer;
+        roleOfClient roles_t;
+        amountOfOrders integer;
     BEGIN
-        RAISE NOTICE 'Book instance with id: %', new.isbn;
-        RAISE NOTICE 'has been rented.';
+        SELECT role into roleOfClient FROM client WHERE id = new.clientId;
+        SELECT count(*) into amountOfOrders FROM book_orders WHERE clientId = new.clientId AND current_date < toDate and status = 'ONGOING';
+            IF roleOfClient = 'NORMAL' THEN
+            IF amountOfOrders > 1 THEN
+                ROLLBACK;
+            END IF;
+        END IF;
+        IF roleOfClient = 'TEACHER' THEN
+            IF amountOfOrders > 2 THEN
+                ROLLBACK;
+            END IF;
+        END IF;
+        IF roleOfClient = 'STUDENT' THEN
+            IF amountOfOrders > 3 THEN
+                ROLLBACK;
+            END IF;
+        END IF;
         SELECT type into bookType FROM book_instances where isbn = new.isbn;
         SELECT bookTypeId into bookId FROM book_instances where isbn = new.isbn;
         IF bookType = 'PRINTED_BOOK' THEN
-            UPDATE stockings SET printed_copies = printed_copies - 1 WHERE id = bookId;
-            UPDATE book_instances SET availability = false, location = 'AT_CLIENT' WHERE isbn = new.isbn;
+            SELECT printed_copies into p_copies FROM stockings WHERE id = bookId;
+            IF p_copies = 0 THEN
+                RAISE NOTICE 'The book with type "PRINTED" is not available';
+                ROLLBACK;
+            END IF;
+            IF p_copies > 0 THEN
+                UPDATE stockings SET printed_copies = printed_copies - 1 WHERE id = bookId;
+                UPDATE book_instances SET status = 'NOT_AVAILABLE', location = 'AT_CLIENT' WHERE isbn = new.isbn;
+            END IF;
         END IF;
         IF bookType = 'ELECTRONIC_BOOK' THEN
-            UPDATE stockings SET electronic_copies = electronic_copies - 1 WHERE id = bookId;
-            UPDATE book_instances SET availability = false, location = 'AT_CLIENT' WHERE isbn = new.isbn;
+                SELECT electronic_copies into e_copies FROM stockings WHERE id = bookId;
+            IF e_copies = 0 THEN
+                RAISE NOTICE 'The book with type "ELECTRONIC" is not available';
+                ROLLBACK;
+            END IF;
+            IF e_copies > 0 THEN
+                UPDATE stockings SET electronic_copies = electronic_copies - 1 WHERE id = bookId;
+                UPDATE book_instances SET status = 'NOT_AVAILABLE', location = 'AT_CLIENT' WHERE isbn = new.isbn;
+            END IF;
         END IF;
+        RAISE NOTICE 'Book instance with id: %', new.isbn;
+        RAISE NOTICE 'has been rented.';
         RETURN NEW;
     END;
     $$ language plpgsql;
 
-CREATE OR REPLACE FUNCTION put_book_on_the_shelf()
-RETURNS TRIGGER as $$
-    DECLARE
-        bookType type_t;
-        bookId integer;
-    BEGIN
-        RAISE NOTICE 'Order is being deleted...';
-        RAISE NOTICE 'Storing book instance with id: %', old.isbn;
-        RAISE NOTICE 'back into the database.';
-        SELECT type into bookType FROM book_instances where isbn = old.isbn;
-        SELECT bookTypeId into bookId FROM book_instances where isbn = old.isbn;
-        IF bookType = 'PRINTED_BOOK' THEN
-            UPDATE stockings SET printed_copies = printed_copies + 1 WHERE id = bookId;
-        END IF;
-        IF bookType = 'ELECTRONIC_BOOK' THEN
-            UPDATE stockings SET electronic_copies = electronic_copies + 1 WHERE id = bookId;
-        END IF;
-        RETURN NEW;
-    END;
-    $$ language plpgsql;
-
-CREATE OR REPLACE FUNCTION update_amount_of_copies()
+CREATE OR REPLACE FUNCTION insert_book_stock_rent()
 RETURNS TRIGGER as $$
     DECLARE
         isCreated boolean;
@@ -259,17 +207,59 @@ RETURNS TRIGGER as $$
     END;
     $$ language plpgsql;
 
+CREATE OR REPLACE FUNCTION update_book_stock_rent()
+RETURNS TRIGGER as $$
+    DECLARE
+        bookType type_t;
+        bookId integer;
+    BEGIN
+        RAISE NOTICE 'Updating stockings...';
+        SELECT type into bookType FROM book_instances WHERE book_instances.isbn = new.isbn;
+        SELECT bookTypeId into bookId FROM book_instances WHERE book_instances.isbn = new.isbn;
+        IF bookType = 'PRINTED_BOOK' THEN
+            if old.status = 'ONGOING' AND new.status = 'FINISHED' OR new.status = 'DELAYED' THEN
+                UPDATE stockings SET printed_copies = printed_copies + 1 WHERE id = bookId;
+                UPDATE book_instances SET status = 'AVAILABLE', location = 'AT_LIBRARY' WHERE isbn = new.isbn;
+            END IF;
+        END IF;
+        IF bookType = 'ELECTRONIC_BOOK' THEN
+            if old.status = 'ONGOING' AND new.status = 'FINISHED' OR new.status = 'DELAYED' THEN
+                UPDATE stockings SET electronic_copies = electronic_copies + 1 WHERE id = bookId;
+                UPDATE book_instances SET status = 'AVAILABLE', location = 'AT_LIBRARY' WHERE isbn = new.isbn;
+            END IF;
+        END IF;
+        RETURN NEW;
+    END;
+    $$ language plpgsql;
+
 CREATE TRIGGER add_booking_order
     AFTER INSERT ON book_orders
     FOR EACH ROW
     EXECUTE PROCEDURE remove_book_from_the_shelf();
 
-CREATE TRIGGER delete_booking_order
-    AFTER DELETE ON book_orders
-    FOR EACH ROW
-    EXECUTE PROCEDURE put_book_on_the_shelf();
-
-CREATE TRIGGER update_amount_of_copies
+CREATE TRIGGER insert_amount_of_copies
     AFTER INSERT ON book_instances
     FOR EACH ROW
-    EXECUTE PROCEDURE update_amount_of_copies();
+    EXECUTE PROCEDURE insert_book_stock_rent();
+
+CREATE TRIGGER update_book_stock_rent
+    AFTER UPDATE ON book_orders
+    FOR EACH ROW
+    EXECUTE PROCEDURE update_book_stock_rent();
+
+
+/* Views */
+/* Get currently availability of a book */
+CREATE VIEW get_current_availability AS
+SELECT status from book_instances where isbn = 2;
+/* Get most popular title by students */
+CREATE VIEW get_most_popular_titles AS
+SELECT book.title, count(book.title) as most_popular FROM book_orders
+INNER JOIN client ON book_orders.clientid = client.id
+INNER JOIN book_instances ON book_orders.isbn = book_instances.isbn
+INNER JOIN book ON book.id = book_instances.booktypeid
+WHERE client.role = 'STUDENT'
+AND book_orders.fromdate > '2021-01-25'
+AND book_orders.todate < '2021-02-07'
+GROUP BY 1
+ORDER BY most_popular DESC;
