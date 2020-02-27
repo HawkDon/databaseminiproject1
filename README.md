@@ -23,4 +23,4 @@ The allowable loan period, as well as the number of books in a loan can vary._**
 - **_The library wants to be able to recieve notifications about delayed returning of a book over the due time._**
 
 ## Data model
-![]('/public.png')
+![](/public.PNG)
