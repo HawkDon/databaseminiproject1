@@ -263,3 +263,12 @@ AND book_orders.fromdate > '2021-01-25'
 AND book_orders.todate < '2021-02-07'
 GROUP BY 1
 ORDER BY most_popular DESC;
+
+/* get overview of book loans overdue */
+create view get_books_overdue as
+select client.id as client, client.role as role, book.title, bi.type from client
+inner join book_orders bo on client.id = bo.clientId
+inner join book_instances bi on bo.isbn = bi.isbn
+inner join book on book.id = bi.bookTypeId
+where bo.todate < current_date
+and bi.status = 'NOT_AVAILABLE'
